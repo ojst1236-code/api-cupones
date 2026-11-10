@@ -163,9 +163,28 @@ function rechazo(motivo, montoCompra, cupon) {
   };
 }
 
-module.exports = {
-  validarCupon,
-  consultarCupon,
-  datetimeLocalAInstante,
-  formatearFechaLocal
+const crear = async (datosCupon) => {
+  datosCupon.codigo = datosCupon.codigo.toUpperCase();
+  await cuponRepository.crearCupon(datosCupon);
+  return { mensaje: 'Cupón creado exitosamente', codigo: datosCupon.codigo };
+};
+
+const modificar = async (codigo, datosActualizar) => {
+  const codigoUpper = codigo.toUpperCase();
+  const resultado = await cuponRepository.modificarCupon(codigoUpper, datosActualizar);
+  
+  if (resultado.affectedRows === 0) {
+    throw new Error('CUPON_NO_ENCONTRADO'); 
+  }
+  
+  return { mensaje: 'Cupón actualizado exitosamente', codigo: codigoUpper };
+};
+
+module.exports = { 
+  validarCupon, 
+  consultarCupon, 
+  datetimeLocalAInstante, 
+  formatearFechaLocal, 
+  crear, 
+  modificar 
 };

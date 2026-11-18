@@ -33,22 +33,25 @@ const crearCupon = async (cupon) => {
   return result;
 };
 
-const modificarCupon = async (codigo, datos) => {
-  const { porcentaje_descuento, fecha_inicio, fecha_fin, monto_minimo, estado } = datos;
-  const query = `
-    UPDATE cupones
-    SET porcentaje_descuento = ?, fecha_inicio = ?, fecha_fin = ?, monto_minimo = ?, estado = ?
-    WHERE codigo = ?
-  `;
-  const [result] = await pool.execute(query, [
-    porcentaje_descuento, 
-    fecha_inicio, 
-    fecha_fin, 
-    monto_minimo, 
-    estado, 
-    codigo
-  ]);
-  return result;
+const desactivarCupon = async (codigo) => {
+  const [rows] = await pool.execute(
+    'SELECT codigo, estado FROM cupones WHERE codigo = ? LIMIT 1',
+    [codigo]
+  );
+  const cupon = rows[0];
+
+  if (!cupon) {
+    return null;
+  }
+
+  if (cupon.estado !== 'INACTIVO') {
+    await pool.execute(
+      'UPDATE cupones SET estado = ? WHERE codigo = ?',
+      ['INACTIVO', codigo]
+    );
+  }
+
+  return { codigo: cupon.codigo, estado: 'INACTIVO' };
 };
 
-module.exports = { obtenerPorCodigo, crearCupon, modificarCupon };
+module.exports = { obtenerPorCodigo, crearCupon, desactivarCupon };

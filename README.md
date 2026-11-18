@@ -1,101 +1,96 @@
-# API REST de cupones
+# API REST de gestión de cupones
 
-API en Node.js, Express y MySQL que implementa `POST /cupones/validar`.
-También permite consultar cupones con `GET /cupones/:codigo`, crear cupones
-con `POST /cupones` y modificarlos con `PUT /cupones/:codigo`.
+API en Node.js, Express y MySQL para crear, consultar, validar y desactivar
+cupones de descuento.
 
 ## Requisitos
 
 - Node.js LTS
-- MySQL Server con la base `api_cupones` y la tabla `cupones`
+- MySQL
+- Esquema de base de datos en `database/schema.sql`
 
-La tabla debe incluir `id`, `codigo`, `porcentaje_descuento`, `fecha_inicio`,
-`fecha_fin`, `monto_minimo` y `estado`. Las columnas `DATETIME` existentes
-representan hora local UTC-05:00 y se comparan como instantes con la fecha ISO
-8601 enviada en la solicitud. `fecha_hora_validacion` es obligatoria por ahora
-para reproducir evaluaciones; falta confirmar con el docente si debe seguir
-siendo obligatoria o si, al omitirse, se usará la hora del servidor.
-
-El descuento se calcula con aritmética decimal y se redondea a dos decimales
-con `ROUND_HALF_UP`; el total se obtiene restando ese descuento redondeado.
-Este redondeo es una decisión técnica propuesta por el equipo.
+La base de datos guarda las fechas como `DATETIME` en UTC-05:00. La API recibe
+y responde fechas ISO 8601 con zona horaria explícita. Los identificadores
+internos numéricos se exponen como cadenas con el formato `CUP-0001`.
 
 ## Configuración y ejecución
 
-1. Verifica que `.env` tenga la configuración local de MySQL.
-2. Configura `ADMIN_API_KEY` con una clave aleatoria de al menos 32 caracteres.
-   Puedes generar una con `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`.
-3. Desde la carpeta del proyecto, instala dependencias con `npm install`.
+1. Configura `.env` con las variables de conexión MySQL.
+2. Ejecuta `database/schema.sql` en la base de datos.
+3. Instala dependencias con `npm install`.
 4. Inicia la API con `npm start`. Al arrancar, comprueba la conexión a MySQL.
-5. Ejecuta las pruebas unitarias con `npm test`.
+5. Ejecuta las pruebas con `npm test`.
 
 ## Despliegue en Railway
 
 1. Conecta el repositorio `ojst1236-code/api-cupones` desde Railway con
    **Deploy from GitHub repo**.
 2. Añade un servicio MySQL al proyecto.
-3. En las variables del servicio de la API, crea referencias a las variables
-   MySQL `MYSQLHOST`, `MYSQLPORT`, `MYSQLUSER`, `MYSQLPASSWORD` y
-   `MYSQLDATABASE`. Configura también `ADMIN_API_KEY` con una clave aleatoria
-   de al menos 32 caracteres. No subas secretos al repositorio. Railway asigna
-   `PORT` automáticamente.
-4. Crea la tabla `cupones` en la base de datos antes de probar los endpoints;
-   este proyecto no incluye un esquema ni migración SQL.
-5. Espera a que termine el despliegue y usa el dominio generado por Railway
-   para probar `GET /`, `GET /cupones/:codigo` y
-   `POST /cupones/validar`.
+3. En las variables del servicio API, crea referencias a `MYSQLHOST`,
+   `MYSQLPORT`, `MYSQLUSER`, `MYSQLPASSWORD` y `MYSQLDATABASE` del servicio
+   MySQL. No subas secretos al repositorio; Railway asigna `PORT`
+   automáticamente.
+4. Ejecuta `database/schema.sql` en la base de datos de Railway.
+5. Espera a que termine el despliegue y usa el dominio generado por Railway.
 
-## Solicitud de ejemplo
+La autenticación y los roles están fuera del alcance definido para esta API;
+por tanto, sus endpoints no requieren clave.
 
-```http
-POST http://localhost:3000/cupones/validar
-Content-Type: application/json
+## Endpoints
+
+### Crear un cupón
+
+`POST /cupones`
+
+```json
+{
+  "codigo": "ECLIPSE-10",
+  "porcentaje_descuento": 10,
+  "fecha_inicio": "2026-10-01T00:00:00-05:00",
+  "fecha_fin": "2026-12-31T23:59:59-05:00",
+  "monto_minimo": 50000
+}
 ```
+
+El estado se asigna automáticamente como `ACTIVO`. La respuesta exitosa
+incluye el ID generado, los datos completos del cupón y el estado.
+
+### Consultar un cupón
+
+`GET /cupones/ECLIPSE-10`
+
+La búsqueda normaliza el código a mayúsculas y devuelve los siete campos del
+cupón. Un cupón inexistente responde `404` con `CUPON_NO_ENCONTRADO`.
+
+### Validar un cupón
+
+`POST /cupones/validar`
 
 ```json
 {
   "codigo": "ECLIPSE-10",
   "monto_compra": 80000,
-  "fecha_hora_validacion": "2026-11-03T15:00:00-05:00"
+  "fecha_hora_validacion": "2026-10-26T09:00:00-05:00"
 }
 ```
 
-Los códigos válidos se convierten a mayúsculas. Las solicitudes inválidas
-responden con HTTP 400. Además de los códigos originales del catálogo, se
-proponen `CUERPO_INVALIDO` y `FECHA_HORA_VALIDACION_INVALIDA` como extensiones
-técnicas para describir esas entradas incorrectas.
+La validación no procesa pagos ni modifica compras. Los montos deben ser
+mayores que cero y el descuento se calcula con precisión decimal, redondeado
+a dos posiciones.
 
-En Postman, crea una solicitud `POST` a
-`http://localhost:3000/cupones/validar`, selecciona **Body → raw → JSON** y usa
-el JSON anterior. Para probar un cupón inexistente, cambia `codigo` por otro
-código válido que no esté guardado en la base de datos.
+### Desactivar un cupón
 
-Para consultar un cupón en Postman, envía `GET
-http://localhost:3000/cupones/eclipse-10`. La respuesta incluye los siete
-campos del registro; los importes son números y los `DATETIME` llevan el
-offset `-05:00`. La consulta también devuelve cupones inactivos, vencidos o
-futuros: no determina su elegibilidad.
+`PATCH /cupones/ECLIPSE-10/desactivar`
 
-Para crear un cupón, envía `POST http://localhost:3000/cupones` con un cuerpo
-JSON que incluya `codigo`, `porcentaje_descuento`, `fecha_inicio`, `fecha_fin`
-y `monto_minimo`. `estado` es opcional y, si se omite, queda como `ACTIVO`.
-Las fechas deben enviarse en el formato que acepte la columna `DATETIME` de
-MySQL, por ejemplo `"2026-11-03 15:00:00"`. Incluye el encabezado
-`Authorization: Bearer <ADMIN_API_KEY>` para autenticarte.
+La operación es idempotente: si ya está inactivo, conserva el estado y
+responde `200`. Si no existe, responde `404` con `CUPON_NO_ENCONTRADO`.
 
-Para modificarlo, envía `PUT http://localhost:3000/cupones/ECLIPSE-10` con
-`porcentaje_descuento`, `fecha_inicio`, `fecha_fin`, `monto_minimo` y `estado`.
-El código de la URL identifica el cupón y no se modifica. Esta solicitud
-también requiere `Authorization: Bearer <ADMIN_API_KEY>`. La consulta y la
-validación permanecen públicas.
+## Reglas principales
 
-## Archivos
-
-- `src/app.js`: configura Express, conecta las rutas y comprueba MySQL al iniciar.
-- `src/config/db.js`: carga variables de entorno y crea el pool de conexiones.
-- `src/routes/cupon.routes.js`: declara las rutas de validación, consulta, creación y modificación de cupones.
-- `src/controllers/cupon.controller.js`: recibe solicitudes, delega al servicio y traduce errores HTTP.
-- `src/services/cupon.service.js`: aplica reglas de elegibilidad y consulta/serializa cupones.
-- `src/repositories/cupon.repository.js`: obtiene los datos reales con una consulta parametrizada.
-- `src/validators/cupon.validator.js`: valida el cuerpo, el formato del código, el monto y la fecha.
-- `test/cupon.validator.test.js`, `test/cupon.service.test.js` y `test/cupon.consulta.test.js`: prueban validación, fechas, RF-03 y consulta de cupones.
+- Código único de 3 a 10 caracteres: letras, números y guiones; se almacena
+  en mayúsculas.
+- Porcentaje mayor que 0 y menor o igual que 70.
+- `fecha_inicio` debe ser anterior a `fecha_fin`.
+- `monto_minimo` debe ser mayor o igual que cero.
+- Los extremos del periodo de vigencia son inclusivos.
+- Los cupones inactivos no son aplicables.

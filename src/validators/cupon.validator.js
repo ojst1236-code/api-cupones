@@ -1,8 +1,6 @@
 const CODIGO_REGEX = /^[A-Za-z0-9-]{3,10}$/;
 const FECHA_ISO_REGEX =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:\d{2})$/i;
-const DATETIME_REGEX =
-  /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/;
 
 class ValidationError extends Error {
   constructor(code, message) {
@@ -65,7 +63,7 @@ function fechaIsoValida(value) {
     }
   }
 
-  return true;
+  return Number.isFinite(Date.parse(value));
 }
 
 function normalizarCodigo(codigo) {
@@ -117,51 +115,7 @@ function validarEntrada(body) {
   };
 }
 
-function fechaDatetimeValida(value) {
-  if (typeof value !== 'string') {
-    return false;
-  }
-
-  const parts = value.match(DATETIME_REGEX);
-  if (!parts) {
-    return false;
-  }
-
-  const [, yearText, monthText, dayText, hourText, minuteText, secondText] =
-    parts;
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
-  const hour = Number(hourText);
-  const minute = Number(minuteText);
-  const second = Number(secondText);
-  const daysInMonth = [
-    31,
-    (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 29 : 28,
-    31,
-    30,
-    31,
-    30,
-    31,
-    31,
-    30,
-    31,
-    30,
-    31
-  ];
-
-  return (
-    month >= 1 &&
-    month <= 12 &&
-    day >= 1 &&
-    day <= daysInMonth[month - 1] &&
-    hour <= 23 &&
-    minute <= 59 &&
-    second <= 59
-  );
-}
-
-function validarDatosCupon(body, actualizar = false) {
+function validarCrearCupon(body) {
   if (body === null || typeof body !== 'object' || Array.isArray(body)) {
     throw new ValidationError(
       'CUERPO_INVALIDO',
@@ -169,49 +123,35 @@ function validarDatosCupon(body, actualizar = false) {
     );
   }
 
-  let codigo;
-  if (!actualizar) {
-    codigo = normalizarCodigo(body.codigo);
-  }
-
-  const {
-    porcentaje_descuento: porcentaje,
-    fecha_inicio: fechaInicio,
-    fecha_fin: fechaFin,
-    monto_minimo: montoMinimo,
-    estado
-  } = body;
+  const codigo = normalizarCodigo(body.codigo);
+  const porcentaje = body.porcentaje_descuento;
+  const fechaInicio = body.fecha_inicio;
+  const fechaFin = body.fecha_fin;
+  const montoMinimo = body.monto_minimo;
 
   if (
     typeof porcentaje !== 'number' ||
     !Number.isFinite(porcentaje) ||
-    porcentaje < 0 ||
-    porcentaje > 100
+    porcentaje <= 0 ||
+    porcentaje > 70
   ) {
     throw new ValidationError(
-      'PORCENTAJE_DESCUENTO_INVALIDO',
-      'El porcentaje de descuento debe ser un número entre 0 y 100.'
+      'PORCENTAJE_INVALIDO',
+      'El porcentaje de descuento debe ser mayor que 0 y menor o igual que 70.'
     );
   }
 
-  if (!fechaDatetimeValida(fechaInicio)) {
+  if (!fechaIsoValida(fechaInicio) || !fechaIsoValida(fechaFin)) {
     throw new ValidationError(
-      'FECHA_INICIO_INVALIDA',
-      'La fecha de inicio debe tener el formato YYYY-MM-DD HH:mm:ss.'
+      'VIGENCIA_INVALIDA',
+      'Las fechas de inicio y fin deben ser ISO 8601 válidas con zona horaria.'
     );
   }
 
-  if (!fechaDatetimeValida(fechaFin)) {
+  if (Date.parse(fechaInicio) >= Date.parse(fechaFin)) {
     throw new ValidationError(
-      'FECHA_FIN_INVALIDA',
-      'La fecha de fin debe tener el formato YYYY-MM-DD HH:mm:ss.'
-    );
-  }
-
-  if (fechaFin < fechaInicio) {
-    throw new ValidationError(
-      'RANGO_FECHAS_INVALIDO',
-      'La fecha de fin no puede ser anterior a la fecha de inicio.'
+      'VIGENCIA_INVALIDA',
+      'La fecha de inicio debe ser anterior a la fecha de fin.'
     );
   }
 
@@ -226,45 +166,20 @@ function validarDatosCupon(body, actualizar = false) {
     );
   }
 
-  if (estado !== undefined && estado !== 'ACTIVO' && estado !== 'INACTIVO') {
-    throw new ValidationError(
-      'ESTADO_INVALIDO',
-      'El estado debe ser ACTIVO o INACTIVO.'
-    );
-  }
-
-  if (actualizar && estado === undefined) {
-    throw new ValidationError(
-      'ESTADO_INVALIDO',
-      'El estado debe ser ACTIVO o INACTIVO.'
-    );
-  }
-
-  const datos = {
+  return {
+    codigo,
     porcentaje_descuento: porcentaje,
     fecha_inicio: fechaInicio,
     fecha_fin: fechaFin,
     monto_minimo: montoMinimo,
-    estado: estado || 'ACTIVO'
+    estado: 'ACTIVO'
   };
-
-  return actualizar ? datos : { codigo, ...datos };
-}
-
-function validarCrearCupon(body) {
-  return validarDatosCupon(body, false);
-}
-
-function validarModificarCupon(body) {
-  return validarDatosCupon(body, true);
 }
 
 module.exports = {
   validarEntrada,
   fechaIsoValida,
-  fechaDatetimeValida,
   validarCrearCupon,
-  validarModificarCupon,
   normalizarCodigo,
   ValidationError
 };

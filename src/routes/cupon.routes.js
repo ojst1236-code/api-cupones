@@ -3,16 +3,15 @@ const {
   validarCupon, 
   consultarCupon,
   crear,
-  modificar
+  desactivar
 } = require('../controllers/cupon.controller');
-const adminAuth = require('../middleware/admin-auth');
 
 const router = express.Router();
 
 router.post('/validar', validarCupon);
 router.get('/:codigo', consultarCupon);
 
-router.post('/', adminAuth, crear);
-router.put('/:codigo', adminAuth, modificar);
+router.post('/', crear);
+router.patch('/:codigo/desactivar', desactivar);
 
 module.exports = router;

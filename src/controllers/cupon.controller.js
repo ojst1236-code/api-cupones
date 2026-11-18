@@ -51,9 +51,9 @@ const crear = async (req, res) => {
         mensaje: error.message
       });
     }
-    if (error.code === 'ER_DUP_ENTRY') { 
+    if (error.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({
-        error: 'CUPON_YA_EXISTE',
+        error: 'CODIGO_DUPLICADO',
         mensaje: 'El código del cupón ya existe en el sistema.'
       });
     }
@@ -65,11 +65,11 @@ const crear = async (req, res) => {
   }
 };
 
-const modificar = async (req, res) => {
+const desactivar = async (req, res) => {
   try {
     const { codigo } = req.params;
-    const resultado = await cuponService.modificar(codigo, req.body);
-    return res.status(200).json(resultado);
+    const resultado = await cuponService.desactivar(codigo);
+    return res.status(resultado.status).json(resultado.body);
   } catch (error) {
     if (error.status === 400 && typeof error.code === 'string') {
       return res.status(400).json({
@@ -77,16 +77,10 @@ const modificar = async (req, res) => {
         mensaje: error.message
       });
     }
-    if (error.message === 'CUPON_NO_ENCONTRADO') {
-      return res.status(404).json({
-        error: 'CUPON_NO_ENCONTRADO',
-        mensaje: 'No se encontró un cupón con ese código.'
-      });
-    }
-    console.error(error);
+    console.error('Error inesperado al desactivar el cupón:', error);
     return res.status(500).json({
       error: 'ERROR_INTERNO',
-      mensaje: 'Ocurrió un error interno al modificar el cupón.'
+      mensaje: 'Ocurrió un error interno al desactivar el cupón.'
     });
   }
 };
@@ -95,5 +89,5 @@ module.exports = {
   validarCupon,
   consultarCupon,
   crear,
-  modificar
+  desactivar
 };

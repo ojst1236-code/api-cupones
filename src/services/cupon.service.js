@@ -2,8 +2,7 @@ const Decimal = require('decimal.js');
 const {
   validarEntrada,
   normalizarCodigo,
-  validarCrearCupon,
-  validarModificarCupon
+  validarCrearCupon
 } = require('../validators/cupon.validator');
 
 function obtenerRepository() {
@@ -11,6 +10,7 @@ function obtenerRepository() {
 }
 
 const OFFSET_DATETIME = '-05:00';
+const OFFSET_MILLISECONDS = -5 * 60 * 60 * 1000;
 const DATETIME_REGEX =
   /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/;
 
@@ -55,6 +55,22 @@ function datetimeLocalAInstante(value) {
     throw new Error('MySQL devolvió una fecha DATETIME inválida.');
   }
   return instante;
+}
+
+function fechaIsoAFechaLocal(value) {
+  const fecha = new Date(Date.parse(value) + OFFSET_MILLISECONDS);
+  const pad = (parte) => String(parte).padStart(2, '0');
+
+  return `${fecha.getUTCFullYear()}-${pad(fecha.getUTCMonth() + 1)}-${pad(
+    fecha.getUTCDate()
+  )} ${pad(fecha.getUTCHours())}:${pad(fecha.getUTCMinutes())}:${pad(
+    fecha.getUTCSeconds()
+  )}`;
+}
+
+function formatearIdCupon(id) {
+  const valor = String(id);
+  return /^\d+$/.test(valor) ? `CUP-${valor.padStart(4, '0')}` : valor;
 }
 
 async function validarCupon(body, repository = obtenerRepository()) {
@@ -138,7 +154,7 @@ async function consultarCupon(codigo, repository = obtenerRepository()) {
   return {
     status: 200,
     body: {
-      id: cupon.id,
+      id: formatearIdCupon(cupon.id),
       codigo: cupon.codigo,
       porcentaje_descuento: porcentaje.toNumber(),
       fecha_inicio: fechaInicio,
@@ -170,34 +186,55 @@ function rechazo(motivo, montoCompra, cupon) {
 
 const crear = async (datosCupon, repository = obtenerRepository()) => {
   const datosValidados = validarCrearCupon(datosCupon);
-  await repository.crearCupon(datosValidados);
+  const fechaInicio = fechaIsoAFechaLocal(datosValidados.fecha_inicio);
+  const fechaFin = fechaIsoAFechaLocal(datosValidados.fecha_fin);
+  const resultado = await repository.crearCupon({
+    ...datosValidados,
+    fecha_inicio: fechaInicio,
+    fecha_fin: fechaFin
+  });
+
   return {
-    mensaje: 'Cupón creado exitosamente',
-    codigo: datosValidados.codigo
+    id: formatearIdCupon(resultado.insertId),
+    codigo: datosValidados.codigo,
+    porcentaje_descuento: datosValidados.porcentaje_descuento,
+    fecha_inicio: formatearFechaLocal(fechaInicio),
+    fecha_fin: formatearFechaLocal(fechaFin),
+    monto_minimo: datosValidados.monto_minimo,
+    estado: 'ACTIVO'
   };
 };
 
-const modificar = async (
-  codigo,
-  datosActualizar,
-  repository = obtenerRepository()
-) => {
+const desactivar = async (codigo, repository = obtenerRepository()) => {
   const codigoUpper = normalizarCodigo(codigo);
-  const datosValidados = validarModificarCupon(datosActualizar);
-  const resultado = await repository.modificarCupon(codigoUpper, datosValidados);
-  
-  if (resultado.affectedRows === 0) {
-    throw new Error('CUPON_NO_ENCONTRADO'); 
+  const cupon = await repository.desactivarCupon(codigoUpper);
+
+  if (!cupon) {
+    return {
+      status: 404,
+      body: {
+        error: 'CUPON_NO_ENCONTRADO',
+        mensaje: 'El cupón solicitado no existe.'
+      }
+    };
   }
-  
-  return { mensaje: 'Cupón actualizado exitosamente', codigo: codigoUpper };
+
+  return {
+    status: 200,
+    body: {
+      codigo: cupon.codigo,
+      estado: 'INACTIVO',
+      mensaje: 'Cupón desactivado'
+    }
+  };
 };
 
 module.exports = { 
   validarCupon, 
   consultarCupon, 
   datetimeLocalAInstante, 
+  fechaIsoAFechaLocal,
   formatearFechaLocal, 
   crear, 
-  modificar 
+  desactivar
 };

@@ -1,54 +1,62 @@
 const pool = require('../config/db');
 
 async function obtenerPorCodigo(codigo) {
-  const [rows] = await pool.execute(
+  const result = await pool.query(
     `SELECT id, codigo, porcentaje_descuento,
-            DATE_FORMAT(fecha_inicio, '%Y-%m-%d %H:%i:%s') AS fecha_inicio,
-            DATE_FORMAT(fecha_fin, '%Y-%m-%d %H:%i:%s') AS fecha_fin,
+            TO_CHAR(fecha_inicio, 'YYYY-MM-DD HH24:MI:SS') AS fecha_inicio,
+            TO_CHAR(fecha_fin, 'YYYY-MM-DD HH24:MI:SS') AS fecha_fin,
             monto_minimo, estado
      FROM cupones
-     WHERE codigo = ?
+     WHERE codigo = $1
      LIMIT 1`,
     [codigo]
   );
 
-  return rows[0] || null;
+  return result.rows[0] || null;
 }
-
 
 const crearCupon = async (cupon) => {
   const { codigo, porcentaje_descuento, fecha_inicio, fecha_fin, monto_minimo, estado } = cupon;
   const query = `
     INSERT INTO cupones (codigo, porcentaje_descuento, fecha_inicio, fecha_fin, monto_minimo, estado)
-    VALUES (?, ?, ?, ?, ?, ?)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING *
   `;
-  const [result] = await pool.execute(query, [
-    codigo, 
-    porcentaje_descuento, 
-    fecha_inicio, 
-    fecha_fin, 
-    monto_minimo, 
+  const result = await pool.query(query, [
+    codigo,
+    porcentaje_descuento,
+    fecha_inicio,
+    fecha_fin,
+    monto_minimo,
     estado || 'ACTIVO'
   ]);
-  return result;
+  return { affectedRows: result.rowCount, cupon: result.rows[0] };
 };
 
-const modificarCupon = async (codigo, datos) => {
-  const { porcentaje_descuento, fecha_inicio, fecha_fin, monto_minimo, estado } = datos;
+const modificarCupon = async (codigo, cupon) => {
+  const { porcentaje_descuento, fecha_inicio, fecha_fin, monto_minimo, estado } = cupon;
   const query = `
     UPDATE cupones
-    SET porcentaje_descuento = ?, fecha_inicio = ?, fecha_fin = ?, monto_minimo = ?, estado = ?
-    WHERE codigo = ?
+    SET porcentaje_descuento = COALESCE($1, porcentaje_descuento),
+        fecha_inicio = COALESCE($2, fecha_inicio),
+        fecha_fin = COALESCE($3, fecha_fin),
+        monto_minimo = COALESCE($4, monto_minimo),
+        estado = COALESCE($5, estado)
+    WHERE codigo = $6
   `;
-  const [result] = await pool.execute(query, [
-    porcentaje_descuento, 
-    fecha_inicio, 
-    fecha_fin, 
-    monto_minimo, 
-    estado, 
+  const result = await pool.query(query, [
+    porcentaje_descuento ?? null,
+    fecha_inicio ?? null,
+    fecha_fin ?? null,
+    monto_minimo ?? null,
+    estado ?? null,
     codigo
   ]);
-  return result;
+  return { affectedRows: result.rowCount };
 };
 
-module.exports = { obtenerPorCodigo, crearCupon, modificarCupon };
+module.exports = {
+  obtenerPorCodigo,
+  crearCupon,
+  modificarCupon
+};

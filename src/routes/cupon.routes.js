@@ -1,18 +1,17 @@
 const express = require('express');
 const { 
-  validarCupon, 
-  consultarCupon,
+  validar, 
+  consultar,
   crear,
   modificar
 } = require('../controllers/cupon.controller');
-const adminAuth = require('../middleware/admin-auth');
 
 const router = express.Router();
 
-router.post('/validar', validarCupon);
-router.get('/:codigo', consultarCupon);
+router.post('/validar', validar);
+router.get('/:codigo', consultar);
 
-router.post('/', adminAuth, crear);
-router.put('/:codigo', adminAuth, modificar);
+router.post('/', crear);
+router.put('/:codigo', modificar);
 
 module.exports = router;

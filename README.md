@@ -1,8 +1,7 @@
 # API REST de cupones
 
 API en Node.js, Express y MySQL que implementa `POST /cupones/validar`.
-También permite consultar cupones con `GET /cupones/:codigo`, crear cupones
-con `POST /cupones` y modificarlos con `PUT /cupones/:codigo`.
+También permite consultar cupones con `GET /cupones/:codigo`.
 
 ## Requisitos
 
@@ -23,27 +22,9 @@ Este redondeo es una decisión técnica propuesta por el equipo.
 ## Configuración y ejecución
 
 1. Verifica que `.env` tenga la configuración local de MySQL.
-2. Configura `ADMIN_API_KEY` con una clave aleatoria de al menos 32 caracteres.
-   Puedes generar una con `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`.
-3. Desde la carpeta del proyecto, instala dependencias con `npm install`.
-4. Inicia la API con `npm start`. Al arrancar, comprueba la conexión a MySQL.
-5. Ejecuta las pruebas unitarias con `npm test`.
-
-## Despliegue en Railway
-
-1. Conecta el repositorio `ojst1236-code/api-cupones` desde Railway con
-   **Deploy from GitHub repo**.
-2. Añade un servicio MySQL al proyecto.
-3. En las variables del servicio de la API, crea referencias a las variables
-   MySQL `MYSQLHOST`, `MYSQLPORT`, `MYSQLUSER`, `MYSQLPASSWORD` y
-   `MYSQLDATABASE`. Configura también `ADMIN_API_KEY` con una clave aleatoria
-   de al menos 32 caracteres. No subas secretos al repositorio. Railway asigna
-   `PORT` automáticamente.
-4. Crea la tabla `cupones` en la base de datos antes de probar los endpoints;
-   este proyecto no incluye un esquema ni migración SQL.
-5. Espera a que termine el despliegue y usa el dominio generado por Railway
-   para probar `GET /`, `GET /cupones/:codigo` y
-   `POST /cupones/validar`.
+2. Desde la carpeta del proyecto, instala dependencias con `npm install`.
+3. Inicia la API con `npm start`. Al arrancar, comprueba la conexión a MySQL.
+4. Ejecuta las pruebas unitarias con `npm test`.
 
 ## Solicitud de ejemplo
 
@@ -76,24 +57,11 @@ campos del registro; los importes son números y los `DATETIME` llevan el
 offset `-05:00`. La consulta también devuelve cupones inactivos, vencidos o
 futuros: no determina su elegibilidad.
 
-Para crear un cupón, envía `POST http://localhost:3000/cupones` con un cuerpo
-JSON que incluya `codigo`, `porcentaje_descuento`, `fecha_inicio`, `fecha_fin`
-y `monto_minimo`. `estado` es opcional y, si se omite, queda como `ACTIVO`.
-Las fechas deben enviarse en el formato que acepte la columna `DATETIME` de
-MySQL, por ejemplo `"2026-11-03 15:00:00"`. Incluye el encabezado
-`Authorization: Bearer <ADMIN_API_KEY>` para autenticarte.
-
-Para modificarlo, envía `PUT http://localhost:3000/cupones/ECLIPSE-10` con
-`porcentaje_descuento`, `fecha_inicio`, `fecha_fin`, `monto_minimo` y `estado`.
-El código de la URL identifica el cupón y no se modifica. Esta solicitud
-también requiere `Authorization: Bearer <ADMIN_API_KEY>`. La consulta y la
-validación permanecen públicas.
-
 ## Archivos
 
 - `src/app.js`: configura Express, conecta las rutas y comprueba MySQL al iniciar.
 - `src/config/db.js`: carga variables de entorno y crea el pool de conexiones.
-- `src/routes/cupon.routes.js`: declara las rutas de validación, consulta, creación y modificación de cupones.
+- `src/routes/cupon.routes.js`: declara las rutas `POST /cupones/validar` y `GET /cupones/:codigo`.
 - `src/controllers/cupon.controller.js`: recibe solicitudes, delega al servicio y traduce errores HTTP.
 - `src/services/cupon.service.js`: aplica reglas de elegibilidad y consulta/serializa cupones.
 - `src/repositories/cupon.repository.js`: obtiene los datos reales con una consulta parametrizada.

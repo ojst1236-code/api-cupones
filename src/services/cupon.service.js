@@ -1,11 +1,14 @@
 const Decimal = require('decimal.js');
-const cuponRepository = require('../repositories/cupon.repository');
 const {
   validarEntrada,
   normalizarCodigo,
   validarCrearCupon,
   validarModificarCupon
 } = require('../validators/cupon.validator');
+
+function obtenerRepository() {
+  return require('../repositories/cupon.repository');
+}
 
 const OFFSET_DATETIME = '-05:00';
 const DATETIME_REGEX =
@@ -54,7 +57,7 @@ function datetimeLocalAInstante(value) {
   return instante;
 }
 
-async function validarCupon(body, repository = cuponRepository) {
+async function validarCupon(body, repository = obtenerRepository()) {
   const entrada = validarEntrada(body);
   const cupon = await repository.obtenerPorCodigo(entrada.codigo);
 
@@ -109,7 +112,7 @@ async function validarCupon(body, repository = cuponRepository) {
   };
 }
 
-async function consultarCupon(codigo, repository = cuponRepository) {
+async function consultarCupon(codigo, repository = obtenerRepository()) {
   const codigoNormalizado = normalizarCodigo(codigo);
   const cupon = await repository.obtenerPorCodigo(codigoNormalizado);
 
@@ -165,7 +168,7 @@ function rechazo(motivo, montoCompra, cupon) {
   };
 }
 
-const crear = async (datosCupon, repository = cuponRepository) => {
+const crear = async (datosCupon, repository = obtenerRepository()) => {
   const datosValidados = validarCrearCupon(datosCupon);
   await repository.crearCupon(datosValidados);
   return {
@@ -177,7 +180,7 @@ const crear = async (datosCupon, repository = cuponRepository) => {
 const modificar = async (
   codigo,
   datosActualizar,
-  repository = cuponRepository
+  repository = obtenerRepository()
 ) => {
   const codigoUpper = normalizarCodigo(codigo);
   const datosValidados = validarModificarCupon(datosActualizar);

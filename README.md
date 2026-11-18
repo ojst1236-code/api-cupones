@@ -29,6 +29,22 @@ Este redondeo es una decisión técnica propuesta por el equipo.
 4. Inicia la API con `npm start`. Al arrancar, comprueba la conexión a MySQL.
 5. Ejecuta las pruebas unitarias con `npm test`.
 
+## Despliegue en Railway
+
+1. Conecta el repositorio `ojst1236-code/api-cupones` desde Railway con
+   **Deploy from GitHub repo**.
+2. Añade un servicio MySQL al proyecto.
+3. En las variables del servicio de la API, crea referencias a las variables
+   MySQL `MYSQLHOST`, `MYSQLPORT`, `MYSQLUSER`, `MYSQLPASSWORD` y
+   `MYSQLDATABASE`. Configura también `ADMIN_API_KEY` con una clave aleatoria
+   de al menos 32 caracteres. No subas secretos al repositorio. Railway asigna
+   `PORT` automáticamente.
+4. Crea la tabla `cupones` en la base de datos antes de probar los endpoints;
+   este proyecto no incluye un esquema ni migración SQL.
+5. Espera a que termine el despliegue y usa el dominio generado por Railway
+   para probar `GET /`, `GET /cupones/:codigo` y
+   `POST /cupones/validar`.
+
 ## Solicitud de ejemplo
 
 ```http

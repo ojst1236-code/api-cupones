@@ -1,9 +1,14 @@
 const Decimal = require('decimal.js');
-const cuponRepository = require('../repositories/cupon.repository');
 const {
   validarEntrada,
-  normalizarCodigo
+  normalizarCodigo,
+  validarCrearCupon,
+  validarModificarCupon
 } = require('../validators/cupon.validator');
+
+function obtenerRepository() {
+  return require('../repositories/cupon.repository');
+}
 
 const OFFSET_DATETIME = '-05:00';
 const DATETIME_REGEX =
@@ -52,7 +57,7 @@ function datetimeLocalAInstante(value) {
   return instante;
 }
 
-async function validarCupon(body, repository = cuponRepository) {
+async function validarCupon(body, repository = obtenerRepository()) {
   const entrada = validarEntrada(body);
   const cupon = await repository.obtenerPorCodigo(entrada.codigo);
 
@@ -107,7 +112,7 @@ async function validarCupon(body, repository = cuponRepository) {
   };
 }
 
-async function consultarCupon(codigo, repository = cuponRepository) {
+async function consultarCupon(codigo, repository = obtenerRepository()) {
   const codigoNormalizado = normalizarCodigo(codigo);
   const cupon = await repository.obtenerPorCodigo(codigoNormalizado);
 
@@ -163,15 +168,23 @@ function rechazo(motivo, montoCompra, cupon) {
   };
 }
 
-const crear = async (datosCupon) => {
-  datosCupon.codigo = datosCupon.codigo.toUpperCase();
-  await cuponRepository.crearCupon(datosCupon);
-  return { mensaje: 'Cupón creado exitosamente', codigo: datosCupon.codigo };
+const crear = async (datosCupon, repository = obtenerRepository()) => {
+  const datosValidados = validarCrearCupon(datosCupon);
+  await repository.crearCupon(datosValidados);
+  return {
+    mensaje: 'Cupón creado exitosamente',
+    codigo: datosValidados.codigo
+  };
 };
 
-const modificar = async (codigo, datosActualizar) => {
-  const codigoUpper = codigo.toUpperCase();
-  const resultado = await cuponRepository.modificarCupon(codigoUpper, datosActualizar);
+const modificar = async (
+  codigo,
+  datosActualizar,
+  repository = obtenerRepository()
+) => {
+  const codigoUpper = normalizarCodigo(codigo);
+  const datosValidados = validarModificarCupon(datosActualizar);
+  const resultado = await repository.modificarCupon(codigoUpper, datosValidados);
   
   if (resultado.affectedRows === 0) {
     throw new Error('CUPON_NO_ENCONTRADO'); 

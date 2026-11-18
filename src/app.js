@@ -38,12 +38,12 @@ app.use((error, req, res, next) => {
   });
 });
 
-// Inicia el servidor solo si puede consultar Supabase.
+// Inicia el servidor solo si puede consultar MySQL.
 async function iniciarServidor() {
   try {
-    await pool.query('SELECT 1');
+    await pool.execute('SELECT 1');
 
-    console.log('Conexión a Supabase (PostgreSQL) correcta.');
+    console.log('Conexión a MySQL correcta.');
 
     const servidor = app.listen(PORT, () => {
       console.log(`API disponible en http://localhost:${PORT}`);
@@ -56,7 +56,7 @@ async function iniciarServidor() {
       process.exitCode = 1;
     });
   } catch (error) {
-    console.error('No se pudo conectar con Supabase:', error.code);
+    console.error('No se pudo conectar con MySQL:', error.code);
     console.error(error.message);
 
     await pool.end();
